@@ -1,99 +1,149 @@
 #include<pthread.h>
-	#include <stdio.h>
-	#include<stdlib.h>
-	#include<sys/types.h>
-	#include<unistd.h>
-	
+#include<stdlib.h>
+#include<unistd.h>
+#include<stdio.h>
 
-	
 
-	pthread_cond_t cond1=PTHREAD_COND_INITIALIZER;
-	pthread_mutex_t mutex;
-	int count = 5;
-	int num_reader = 0;
-	
 
-	void *reader(void *read_n)
-	{
-	sleep(5);
-	
-	pthread_mutex_lock(&mutex);                               //O(1)
-	
-	if(num_reader == -1)                                      //O(1)
- {
-	pthread_cond_wait(&cond1,&mutex);                         //O(1)
-	}
-	num_reader++;
-	pthread_mutex_unlock(&mutex);                            //O(1)
-	printf("Reader %d: read count is %d\n",(*((int *)read_n)),count); 
-	pthread_mutex_lock(&mutex);                               //O(1)
-	num_reader--;                                             //O(1)
-	if(num_reader == 0)                                       //O(1)
- {
-	pthread_cond_signal(&cond1);                               //O(1)
-	}
-	pthread_mutex_unlock(&mutex);                               //O(1)
-	}
-	
+pthread_mutex_t mutex, wrt;
+int s, rcount = 0;
 
-	void *writer(void *write_n)
-	{
-	int m=rand()%30;
-	sleep(m);
-	count = count*2;                                            //O(1)
-	printf("Writer changes: %d count to %d\n",(*((int      *)write_n)),count);                                         //O(1)
-	pthread_mutex_unlock(&mutex);                               //O(1)
-	
 
-	}
-	
-
-	int main()
-	{
-	int num_reader,num_writer;                           //O(1)
-	printf("Enter number of reader between 1 and 10\n");//O(1)
-	scanf("%d",&num_reader);                            //O(1)
-	printf("Enter number of writer between 1 and 10\n");//O(1)
-	scanf("%d",&num_writer);                            //O(1)
-	
-
-	
-
-	pthread_t read[num_reader],write[num_writer];        //O(1)
-	pthread_mutex_init(&mutex, NULL);                    //O(1)
-	
-
-	int arr[10] = {1,2,3,4,5,6,7,8,9,10};
-	
-
-	for(int i = 0; i < num_writer; i++)           //O(num_writer)
- {
-	pthread_create(&write[i], NULL, (void *)writer,(void *)&arr[i]);
-	}
-	
-	for(int i = 0; i < num_reader; i++)           //O(num_reader)
-{
-	pthread_create(&read[i], NULL, (void *)reader,(void *)&arr[i]);
-	}
-	
-	
-	for(int i = 0; i < num_reader; i++)           //O(num_reader)
- {
-	pthread_join(read[i], NULL);
-	}
-	for(int i = 0; i < num_writer; i++)          //O(num_writer)
-	{
-	pthread_join(write[i], NULL);
-	}
-	
-
-	pthread_mutex_destroy(&mutex);
-	pthread_cond_destroy(&cond1);
-	
-
-	return 0;
+void *writer(void *arg){
+        pthread_mutex_lock(&wrt);
+        int n = rand() % 10;
+        int d = ((int)arg);
+        printf("--------------------------------------------------\n");
+        printf("W%d Wait for Random time between 0ns and 10ns = %d\n", d, n);
+        sleep(n);
+        printf("Enter the number of time W%d want to write:\n", d);
+        int t;
+        scanf("%d", &t);
+        printf("Now W%d is writing... i.e. ADDING...\n", d);
+        int j;
+        for(j=0; j<t; j++){
+                printf("Enter the %dth INTEGER value to write:\n", (j+1));
+                int u;
+                scanf("%d", &u);
+                s = s + u;
+        }
+        printf("UPDATED value of Shared variable = %d \n", s);
+        printf("--------------------------------------------------\n");
+        pthread_mutex_unlock(&wrt);
 }
-	
-	}
 
 
+void *reader(void *arg){
+        //Entry Part
+        pthread_mutex_lock(&mutex);
+        rcount++;
+        if(rcount==1){
+                pthread_mutex_lock(&wrt);//No writer should come
+        }
+        pthread_mutex_unlock(&mutex);//so next reader can come
+        //Exit Part
+        int n = rand() % 10;
+        int d = ((int)arg);
+        printf("R%d wait for Random time between 0ns and 10ns = %d\n", d, n);
+        sleep(n);
+        printf("Enter the number of time R%d want to read:\n", d);
+        int t;
+        scanf("%d", &t);
+        printf("Now R%d is reading....\n", d);
+        int j;
+        for(j=0; j<t; j++){
+                printf("R%d read the shared value = %d\n", d, s);
+        }
+        printf("Number of Readers present = %d\n", rcount);
+        pthread_mutex_lock(&mutex);
+        rcount--;
+        if(rcount==0){//Now writer can come if they want
+                pthread_mutex_unlock(&wrt);
+        }
+        pthread_mutex_unlock(&mutex);
+}
+
+
+void main(){
+        printf("Enter the 'INTEGER' Initial value of share variable: \n");
+        scanf("%d", &s);
+        printf("---------------------------------------------\n");
+        int rn, wn, i;
+        printf("Enter the no. of Reader:\n");
+        scanf("%d", &rn);
+        for(i=0; i<rn; i++){
+                printf("R%d\n", i);
+        }
+        printf("---------------------------------------------\n");
+        printf("Enter the no. of Writer:\n");
+        scanf("%d", &wn);
+        for(i=0; i<wn; i++){
+                printf("W%d\n", i);
+        }
+        printf("---------------------------------------------\n");
+
+
+        pthread_t r[rn], w[wn];
+        pthread_mutex_init(&wrt, NULL);
+        pthread_mutex_init(&mutex, NULL);
+
+
+        if(rn<0 || wn<0){
+                printf("Sorry: You have Entered NEGATIVE number of READER | WRITER\n");
+                printf("Program is Terminating....\n");
+                return;
+        }else if(rn == 0){
+                printf("Sorry: You have not taken any READER\n");
+                printf("No READER thread will be creaded\n");
+        }else if(wn == 0){
+                printf("Sorry: You have not taken any WRITER\n");
+                printf("No WRITER thread will be creaded\n");
+        }else{
+                printf("Thread Creating....\n");
+        }
+        printf("---------------------------------------------\n");
+
+
+        if(wn==rn){
+                for(i=0; i<wn; i++){
+                        pthread_create(&w[i], NULL, &writer, (int *)i);
+                        pthread_create(&r[i], NULL, &reader, (int *)i);
+                }
+                for(i=0; i<wn; i++){
+                        pthread_join(w[i], NULL);
+                        pthread_join(r[i], NULL);
+                }
+        }else if(wn>rn){
+                for(i=0; i<rn; i++){
+                        pthread_create(&w[i], NULL, &writer, (int *)i);
+                        pthread_create(&r[i], NULL, &reader, (int *)i);
+                }
+                for(i=rn; i<wn; i++){
+                        pthread_create(&w[i], NULL, &writer, (int *)i);
+                }
+                for(i=0; i<rn; i++){
+                        pthread_join(w[i], NULL);
+                        pthread_join(r[i], NULL);
+                }
+                for(i=rn; i<wn; i++){
+                        pthread_join(w[i], NULL);
+                }
+        }else{
+                for(i=0; i<wn; i++){
+                        pthread_create(&w[i], NULL, &writer, (int *)i);
+                        pthread_create(&r[i], NULL, &reader, (int *)i);
+                }
+                for(i=wn; i<rn; i++){
+                        pthread_create(&r[i], NULL, &reader, (int *)i);
+                }
+                for(i=0; i<wn; i++){
+                        pthread_join(w[i], NULL);
+                        pthread_join(r[i], NULL);
+                }
+                for(i=wn; i<rn; i++){
+                        pthread_join(r[i], NULL);
+                }
+        }
+        printf("-------------After joining the thread---------\n");
+        printf("Final value of share variable = %d\n", s);
+}
