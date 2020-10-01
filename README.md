@@ -1,3 +1,5 @@
+                                /*Implementation of reader-writer problem*/
+
 #include<pthread.h>
 #include<stdlib.h>
 #include<unistd.h>
